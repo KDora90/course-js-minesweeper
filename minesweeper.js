@@ -3,13 +3,23 @@ const canvas = document.getElementById('myCanvas');
 const c = canvas.getContext('2d');
 
 const size = 50;
-let x = 100;
-let y = 50;
+const colums = canvas.width / size;
+const rows = canvas.height / size;
 
-drawImage(0, 0);
-drawImage(100,100);
-drawImage(123, 234);
+drawMap();
 
-function drawImage(x, y){
-    c.drawImage(image, x, y,size, size);
+function drawMap () {
+    for (let i = 0; i <colums; i++){
+        for (let j = 0; j < rows; j++){
+            drawImage(i * size, j * size);
+
+        }
+    }
+
+} 
+
+function drawImage(x, y) {
+    c.drawImage(image, x, y, size, size);
 }
+
+
