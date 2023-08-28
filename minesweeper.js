@@ -1,15 +1,19 @@
 const canvas = document.getElementById('myCanvas');
 const c = canvas.getContext('2d');
-
+const actionButton = document.getElementById('action-button');
+const mineCounter = document.getElementById('mine-count');
+const timeCounter = document.getElementById('time');
 
 const size = 50;
 const colums = canvas.width / size;
 const rows = canvas.height / size;
 const mine = 'mine';
-const mineCount = 20;
+const mineCount = 30;
 const images = {
     'hidden': document.getElementById('hidden'),
-    'mine': document.getElementById('mine'),
+    'mine': document.getElementById('exploded-mine'),
+    'flag': document.getElementById('flag'),
+    'flaggedWrong': document.getElementById('flagged-wrong'),
     '0': document.getElementById('field-0'),
     '1': document.getElementById('field-1'),
     '2': document.getElementById('field-2'),
@@ -20,25 +24,109 @@ const images = {
     '7': document.getElementById('field-7'),
     '8': document.getElementById('field-8'),
 };
+const buttons = {
+  start: 'assets/button-start.png',
+  lost: 'assets/button-lost.png',
+  won: 'assets/button-won.png',
+}
+let isGameOver;
+let isFirstClick ;
+let exploredFields;
+let flagMap;
+let map;
+let exploredMap;
+let remainingMines;
+let timer;
 
-let map = createMap();
-let exploredMap = createExploredMap();
-placeMines(map, mineCount);
-calculateFieldValues(map);
-drawMap();
+initGame();
 
 canvas.addEventListener("click", function(event) {
   // Kattintás helye canvas koordinátarendszerében
+  if (isGameOver) return;
   const x = event.offsetX;
   const y = event.offsetY;
   const col = Math.floor(x / size);
   const row = Math.floor(y / size);
+  if (isFirstClick) {
+    placeMines(map, mineCount, row, col);
+    calculateFieldValues(map);
+    isFirstClick = false;
+    strartTimer();
+  }
  exploreField(row, col);
   drawMap();
+  if (map[row][col] === mine && exploredMap[row][col]) {
+    looseGame();
+    stopTimer();
+  } else if (exploredFields === rows * colums - mineCount) {
+    isGameOver = true;
+    actionButton.src = buttons.won;
+    stopTimer();
+  }
 });
 
+canvas.addEventListener("contextmenu", function(event) {
+  event.preventDefault(); // megakadályozzuk a jobb klikket
+  const x = event.offsetX;
+  const y = event.offsetY;
+  const col = Math.floor(x / size);
+  const row = Math.floor(y / size);
+  if (exploredMap[row][col]) return; // ha már felfedtük a mezőt, nem csinálunk semmit
+  flagMap[row][col] = !flagMap[row][col];
+  remainingMines += flagMap[row][col] ? -1 : 1; // ternary operator
+  drawMap();
+  mineCounter.innerText = convertNumberTo3DigitString(remainingMines);
+
+});
+
+actionButton.addEventListener('click', function() {
+  initGame();
+  stopTimer();
+  timeCounter.innerText = convertNumberTo3DigitString(0);
+});
+
+function strartTimer () {
+  let seconds = 0;
+  timer = setInterval(function() {
+    seconds = Math.min(seconds + 1, 999);
+    timeCounter.innerText = convertNumberTo3DigitString(seconds);
+  }, 1000);
+}
+function stopTimer() {
+  clearInterval(timer);
+}
+
+function initGame() {
+  isGameOver = false;
+  isFirstClick = true;
+  exploredFields = 0;
+  map = createMap();
+  exploredMap = createBooleanMap();
+  flagMap = createBooleanMap();
+  drawMap();
+  actionButton.src = buttons.start;
+  remainingMines = mineCount;
+  mineCounter.innerText = convertNumberTo3DigitString(remainingMines);
+  
+} 
+function looseGame() {
+  isGameOver = true;
+  actionButton.src = buttons.lost;
+  for (let rowI = 0; rowI < rows; rowI++) {
+    for (let colI = 0; colI < colums; colI++) {
+      if (flagMap[rowI][colI] && map[rowI][colI] !== mine) {
+        drawImage(images.flaggedWrong, colI * size, rowI * size);
+        
+      }
+    }
+  }
+
+}
+  
+
 function exploreField(row, col) {
-  if (exploredMap[row][col] === false) {
+  if (!exploredMap[row][col] && !flagMap[row][col]) {
+    exploredFields++;
     exploredMap[row][col] = true;
     if (map[row][col] === 0) {
       let neighbourCoordinates = findNeighbourFields(map, row, col);
@@ -94,12 +182,12 @@ function countMines(map, coordinates) {
                 
 
 
-function placeMines(map, mineCount) {
+function placeMines(map, mineCount, startRow, startCol) {
     let mines = 0;
     while (mines < mineCount) { 
         let x = Math.floor(Math.random() * colums);
         let y = Math.floor(Math.random() * rows);
-        if (map[y][x] !== mine) {
+        if (x !== startCol && y !== startRow && map[y][x] !== mine) {
             map[y][x] = mine;
             mines++;
         }
@@ -118,7 +206,7 @@ function createMap() {
     return map;
 }
 
-function createExploredMap() {
+function createBooleanMap() {
     let exploredMap = [];
     for (let j = 0; j < rows; j++) {
         let row = [];
@@ -133,8 +221,11 @@ function createExploredMap() {
 function drawMap() {
     for (let rowI = 0; rowI < rows; rowI++) {
         for (let colI = 0; colI < colums; colI++) {
-          if (exploredMap[rowI][colI] === false) {
+          if (!exploredMap[rowI][colI]) {
             drawImage(images.hidden, colI * size, rowI * size);
+            if (flagMap[rowI][colI]) {
+              drawImage(images.flag, colI * size, rowI * size);
+            }
           } else {
             let field = map[rowI][colI];
             let image = images[field];
@@ -148,6 +239,18 @@ function drawMap() {
 function drawImage(image, x, y) {
     c.drawImage(image, x, y, size, size);
 }
+
+function convertNumberTo3DigitString(number) {
+  if (number < 0) {
+    return '🤥'
+   } else if (number < 10) {
+      return '00' + number;
+    } else if (number < 100) {  
+      return '0' + number;
+    } else {
+      return number;
+    }
+  }
 
 // Ez a függvény megvárja, amíg az összes kép betöltődik, és csak utána hívja meg a paraméterként kapott másik függvényt.
 // Az első paraméter a meghívandó függvény, a második paraméter a betöltési idő, ami 0-ról indul.
