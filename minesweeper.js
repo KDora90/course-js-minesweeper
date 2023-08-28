@@ -22,9 +22,77 @@ const images = {
 };
 
 let map = createMap();
+let exploredMap = createExploredMap();
 placeMines(map, mineCount);
-
+calculateFieldValues(map);
 drawMap();
+
+canvas.addEventListener("click", function(event) {
+  // Kattintás helye canvas koordinátarendszerében
+  const x = event.offsetX;
+  const y = event.offsetY;
+  const col = Math.floor(x / size);
+  const row = Math.floor(y / size);
+ exploreField(row, col);
+  drawMap();
+});
+
+function exploreField(row, col) {
+  if (exploredMap[row][col] === false) {
+    exploredMap[row][col] = true;
+    if (map[row][col] === 0) {
+      let neighbourCoordinates = findNeighbourFields(map, row, col);
+      for (let i = 0; i < neighbourCoordinates.length; i++) {
+        let coordinate = neighbourCoordinates[i]; // {row: 2, col: 3}
+        exploreField(coordinate.row, coordinate.col); // rekurzió
+      }
+    }
+  }
+}
+
+
+
+function calculateFieldValues(map) {
+    for (let rowI = 0; rowI < rows; rowI++) {
+        for (let colI = 0; colI < colums; colI++) {
+            let field = map[rowI][colI];
+            if (field !== mine) {
+                let neighbourCoordinates = findNeighbourFields(map, rowI, colI);
+                let mineCount = countMines(map, neighbourCoordinates);
+                map[rowI][colI] = mineCount;
+            }
+          }
+        }
+      }
+function countMines(map, coordinates) {
+    let mineCount = 0;
+    for (i = 0; i < coordinates.length; i++) {
+        let coordinate = coordinates[i];
+        let field = map[coordinate.row][coordinate.col];
+        if (field === mine) {
+            mineCount++;
+        } 
+    }
+    return mineCount;
+}
+
+  function findNeighbourFields(map, rowI, colI) {
+    let neighbourCoordinates = [];
+    for (let row = rowI - 1; row <= rowI + 1; row++) {
+        for (let col = colI - 1; col <= colI + 1; col++) {
+            if (row >= 0 && row < rows && col >= 0 && col < colums) {
+                if (row !== rowI || col !== colI) {
+                    neighbourCoordinates.push({row: row, col: col});
+                }
+            }
+        }
+    }
+    return neighbourCoordinates;
+}
+
+
+                
+
 
 function placeMines(map, mineCount) {
     let mines = 0;
@@ -50,9 +118,24 @@ function createMap() {
     return map;
 }
 
+function createExploredMap() {
+    let exploredMap = [];
+    for (let j = 0; j < rows; j++) {
+        let row = [];
+        for (let i = 0; i < colums; i++) {
+            row[i] = false;
+        }
+        exploredMap[j] = row;
+    }
+    return exploredMap;
+}
+
 function drawMap() {
     for (let rowI = 0; rowI < rows; rowI++) {
         for (let colI = 0; colI < colums; colI++) {
+          if (exploredMap[rowI][colI] === false) {
+            drawImage(images.hidden, colI * size, rowI * size);
+          } else {
             let field = map[rowI][colI];
             let image = images[field];
             drawImage(image, colI * size, rowI * size);
@@ -60,6 +143,7 @@ function drawMap() {
     }
 
 } 
+}
 
 function drawImage(image, x, y) {
     c.drawImage(image, x, y, size, size);
