@@ -54,15 +54,9 @@ canvas.addEventListener("click", function(event) {
     strartTimer();
   }
  exploreField(row, col);
-  drawMap();
-  if (map[row][col] === mine && exploredMap[row][col]) {
-    looseGame();
-    stopTimer();
-  } else if (exploredFields === rows * colums - mineCount) {
-    isGameOver = true;
-    actionButton.src = buttons.won;
-    stopTimer();
-  }
+ drawMap();
+ checkGameEnd(row, col);
+  
 });
 
 canvas.addEventListener("contextmenu", function(event) {
@@ -71,12 +65,24 @@ canvas.addEventListener("contextmenu", function(event) {
   const y = event.offsetY;
   const col = Math.floor(x / size);
   const row = Math.floor(y / size);
-  if (exploredMap[row][col]) return; // ha már felfedtük a mezőt, nem csinálunk semmit
-  flagMap[row][col] = !flagMap[row][col];
-  remainingMines += flagMap[row][col] ? -1 : 1; // ternary operator
-  drawMap();
-  mineCounter.innerText = convertNumberTo3DigitString(remainingMines);
-
+  if (exploredMap[row][col]) {
+    const neighbourCoordinates = findNeighbourFields(map, row, col);
+    let flaggedNeighbours = countFlaggedNeighbours(neighbourCoordinates);  
+    if (flaggedNeighbours === map[row][col]) {
+      for (let i = 0; i < neighbourCoordinates.length; i++) {
+        let coordinate = neighbourCoordinates[i];
+        exploreField(coordinate.row, coordinate.col);
+      }
+    }
+  } else{
+    flagMap[row][col] = !flagMap[row][col];
+    remainingMines += flagMap[row][col] ? -1 : 1; // ternary operator
+    mineCounter.innerText = convertNumberTo3DigitString(remainingMines);
+  }
+    drawMap();
+    if (isGameOver) {
+      showWrongFlags();
+    }
 });
 
 actionButton.addEventListener('click', function() {
@@ -84,6 +90,17 @@ actionButton.addEventListener('click', function() {
   stopTimer();
   timeCounter.innerText = convertNumberTo3DigitString(0);
 });
+
+function checkGameEnd(row, col) {
+  if (map[row][col] === mine && exploredMap[row][col]) {
+    looseGame();
+    stopTimer();
+  } else if (exploredFields === rows * colums - mineCount) {
+    isGameOver = true;
+    actionButton.src = buttons.won;
+    stopTimer();
+  }
+}
 
 function strartTimer () {
   let seconds = 0;
@@ -112,14 +129,19 @@ function initGame() {
 function looseGame() {
   isGameOver = true;
   actionButton.src = buttons.lost;
+  showWrongFlags();
+
+}
+
+function showWrongFlags() {
   for (let rowI = 0; rowI < rows; rowI++) {
     for (let colI = 0; colI < colums; colI++) {
       if (flagMap[rowI][colI] && map[rowI][colI] !== mine) {
         drawImage(images.flaggedWrong, colI * size, rowI * size);
-        
       }
     }
   }
+
 
 }
   
@@ -128,6 +150,7 @@ function exploreField(row, col) {
   if (!exploredMap[row][col] && !flagMap[row][col]) {
     exploredFields++;
     exploredMap[row][col] = true;
+    checkGameEnd(row, col);
     if (map[row][col] === 0) {
       let neighbourCoordinates = findNeighbourFields(map, row, col);
       for (let i = 0; i < neighbourCoordinates.length; i++) {
@@ -162,6 +185,16 @@ function countMines(map, coordinates) {
         } 
     }
     return mineCount;
+}
+function countFlaggedNeighbours(coordinates) {
+  let flaggedNeighbours = 0;
+  for (let i = 0; i < coordinates.length; i++) {
+    let coordinate = coordinates[i];
+    if (flagMap[coordinate.row][coordinate.col]) {
+      flaggedNeighbours++;
+    }
+  }
+  return flaggedNeighbours;
 }
 
   function findNeighbourFields(map, rowI, colI) {
